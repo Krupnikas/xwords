@@ -1,0 +1,36 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: mc.skrup.ru
+          username: sergey
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/crossword-backend || mkdir -p ~/crossword-backend
+            cd ~/crossword-backend
+
+            # Клонируем или обновляем
+            if [ -d ".git" ]; then
+              git pull origin dev
+            else
+              git clone -b dev https://github.com/${{ github.repository }}.git .
+            fi
+
+            cd backend
+            npm install --production
+
+            # Перезапускаем через pm2
+            pm2 restart crossword-api || pm2 start server.js --name crossword-api
