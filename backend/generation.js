@@ -413,21 +413,38 @@ class Crossword {
         const words = Array.from(this.wordIndex.allWords).slice(0, 100);
         if (words.length === 0) return null;
 
-        // Пробуем найти место для каждого слова
+        // Центр области
+        const centerX = Math.floor((x0 + x1) / 2);
+        const centerY = Math.floor((y0 + y1) / 2);
+        const maxRadius = Math.max(x1 - centerX, y1 - centerY, centerX - x0, centerY - y0);
+
+        // Пробуем найти место для каждого слова, начиная от центра
         for (const word of words) {
-            // Пробуем горизонтально
-            for (let y = y0; y <= y1; y++) {
-                for (let x = x0; x <= x1 - word.length; x++) {
-                    if (this._canPlaceWordInEmpty(x, y, "horizontal", word)) {
-                        return { word, x, y, direction: "horizontal" };
-                    }
-                }
-            }
-            // Пробуем вертикально
-            for (let x = x0; x <= x1; x++) {
-                for (let y = y0; y <= y1 - word.length; y++) {
-                    if (this._canPlaceWordInEmpty(x, y, "vertical", word)) {
-                        return { word, x, y, direction: "vertical" };
+            // Спиральный поиск от центра
+            for (let r = 0; r <= maxRadius; r++) {
+                // Проходим по квадрату на расстоянии r от центра
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        // Только границы квадрата (не внутренность, она уже проверена)
+                        if (r > 0 && Math.abs(dx) < r && Math.abs(dy) < r) continue;
+
+                        const x = centerX + dx;
+                        const y = centerY + dy;
+
+                        if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+
+                        // Пробуем горизонтально
+                        if (x + word.length <= x1 + 1) {
+                            if (this._canPlaceWordInEmpty(x, y, "horizontal", word)) {
+                                return { word, x, y, direction: "horizontal" };
+                            }
+                        }
+                        // Пробуем вертикально
+                        if (y + word.length <= y1 + 1) {
+                            if (this._canPlaceWordInEmpty(x, y, "vertical", word)) {
+                                return { word, x, y, direction: "vertical" };
+                            }
+                        }
                     }
                 }
             }
