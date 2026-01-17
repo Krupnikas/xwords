@@ -197,8 +197,14 @@ class Crossword {
 
             if (direction === "horizontal") {
                 if (this.isBlocked(px, py, "horizontal")) return false;
+                // Проверяем что сверху/снизу нет букв (слипание)
+                if (this.getCellLetter(px, py - 1) !== null) return false;
+                if (this.getCellLetter(px, py + 1) !== null) return false;
             } else {
                 if (this.isBlocked(px, py, "vertical")) return false;
+                // Проверяем что слева/справа нет букв (слипание)
+                if (this.getCellLetter(px - 1, py) !== null) return false;
+                if (this.getCellLetter(px + 1, py) !== null) return false;
             }
         }
         return true;
