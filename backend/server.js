@@ -70,70 +70,77 @@ app.post('/api/expand', (req, res) => {
     const crossword = session.crossword;
 
     const { x0, y0, x1, y1 } = bounds;
-
-    // Находим кандидатов в расширенной области
-    const candidatesInArea = crossword.firstLetterCandidates.filter(c => {
-        return c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1;
-    });
-
-    // Генерируем слова для кандидатов в области
     const wordsBefore = crossword.words.length;
-    const maxNewWords = 20; // Лимит за один запрос
-    let added = 0;
+    const maxIterations = 500; // Защита от бесконечного цикла
+    let iterations = 0;
 
-    for (const candidate of candidatesInArea) {
-        if (added >= maxNewWords) break;
+    // Генерируем пока есть кандидаты с пересечениями в области
+    while (iterations < maxIterations) {
+        iterations++;
 
-        const constraints = crossword.getConstraintsForCandidate(
-            candidate.x, candidate.y, candidate.direction
-        );
-        if (!constraints) continue;
+        // Находим всех кандидатов в области с пересечениями
+        const candidatesWithConstraints = [];
+        for (const c of crossword.firstLetterCandidates) {
+            if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
 
-        const matchingWords = crossword.wordIndex.findByConstraints(constraints, 1, 10);
+            const constraints = crossword.getConstraintsForCandidate(c.x, c.y, c.direction);
+            if (constraints) {
+                candidatesWithConstraints.push({ candidate: c, constraints });
+            }
+        }
 
+        if (candidatesWithConstraints.length === 0) break;
+
+        // Ищем лучшее слово среди всех кандидатов
         let bestWord = null;
         let maxScore = 0;
 
-        for (const word of matchingWords) {
-            if (!crossword.canPlaceWord(candidate.x, candidate.y, candidate.direction, word.length)) {
-                continue;
-            }
+        for (const { candidate, constraints } of candidatesWithConstraints) {
+            const matchingWords = crossword.wordIndex.findByConstraints(constraints, 1, 10);
 
-            let valid = true;
-            let intersections = 0;
+            for (const word of matchingWords) {
+                if (!crossword.canPlaceWord(candidate.x, candidate.y, candidate.direction, word.length)) {
+                    continue;
+                }
 
-            for (let i = 0; i < word.length; i++) {
-                const existingLetter = candidate.direction === "horizontal"
-                    ? crossword.getCellLetter(candidate.x + i, candidate.y)
-                    : crossword.getCellLetter(candidate.x, candidate.y + i);
+                let valid = true;
+                let intersections = 0;
 
-                if (existingLetter !== null) {
-                    if (existingLetter === word[i]) {
-                        intersections++;
-                    } else {
-                        valid = false;
-                        break;
+                for (let i = 0; i < word.length; i++) {
+                    const existingLetter = candidate.direction === "horizontal"
+                        ? crossword.getCellLetter(candidate.x + i, candidate.y)
+                        : crossword.getCellLetter(candidate.x, candidate.y + i);
+
+                    if (existingLetter !== null) {
+                        if (existingLetter === word[i]) {
+                            intersections++;
+                        } else {
+                            valid = false;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (!valid || intersections === 0) continue;
+                if (!valid || intersections === 0) continue;
 
-            const score = word.length + intersections;
-            if (score > maxScore) {
-                maxScore = score;
-                bestWord = {
-                    word: word,
-                    x: candidate.x,
-                    y: candidate.y,
-                    direction: candidate.direction
-                };
+                const score = word.length + intersections;
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestWord = {
+                        word: word,
+                        x: candidate.x,
+                        y: candidate.y,
+                        direction: candidate.direction
+                    };
+                }
             }
         }
 
         if (bestWord) {
             crossword.addWord(bestWord);
-            added++;
+        } else {
+            // Нет подходящих слов для всех кандидатов с пересечениями
+            break;
         }
     }
 
