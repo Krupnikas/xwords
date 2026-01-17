@@ -87,6 +87,14 @@ class Crossword {
             if (this.isBlocked(candidate.x, candidate.y, candidate.direction)) {
                 return false;
             }
+            // Кандидат невалиден если рядом с его позицией есть буква (слипание)
+            if (candidate.direction === "horizontal") {
+                if (this.getCellLetter(candidate.x, candidate.y - 1) !== null) return false;
+                if (this.getCellLetter(candidate.x, candidate.y + 1) !== null) return false;
+            } else {
+                if (this.getCellLetter(candidate.x - 1, candidate.y) !== null) return false;
+                if (this.getCellLetter(candidate.x + 1, candidate.y) !== null) return false;
+            }
             if (crosswordWord.direction === "horizontal" &&
                 candidate.direction === "horizontal" &&
                 candidate.x >= crosswordWord.x - 2 &&
@@ -338,29 +346,25 @@ class Crossword {
         if (direction === "horizontal") {
             for (let i = 0; i < word.length; i++) {
                 for (let j = 0; j < maxWordLength; j++) {
-                    const checking_x = x + i;
-                    const checking_y = y - j;
-                    if (!this.isBlocked(checking_x, checking_y, "vertical")) {
-                        newCandidates.push({
-                            x: checking_x,
-                            y: checking_y,
-                            direction: "vertical"
-                        });
-                    }
+                    const cx = x + i;
+                    const cy = y - j;
+                    if (this.isBlocked(cx, cy, "vertical")) continue;
+                    // Проверка на слипание: слева/справа не должно быть букв
+                    if (this.getCellLetter(cx - 1, cy) !== null) continue;
+                    if (this.getCellLetter(cx + 1, cy) !== null) continue;
+                    newCandidates.push({ x: cx, y: cy, direction: "vertical" });
                 }
             }
         } else if (direction === "vertical") {
             for (let i = 0; i < word.length; i++) {
                 for (let j = 0; j < maxWordLength; j++) {
-                    const checking_x = x - j;
-                    const checking_y = y + i;
-                    if (!this.isBlocked(checking_x, checking_y, "horizontal")) {
-                        newCandidates.push({
-                            x: checking_x,
-                            y: checking_y,
-                            direction: "horizontal"
-                        });
-                    }
+                    const cx = x - j;
+                    const cy = y + i;
+                    if (this.isBlocked(cx, cy, "horizontal")) continue;
+                    // Проверка на слипание: сверху/снизу не должно быть букв
+                    if (this.getCellLetter(cx, cy - 1) !== null) continue;
+                    if (this.getCellLetter(cx, cy + 1) !== null) continue;
+                    newCandidates.push({ x: cx, y: cy, direction: "horizontal" });
                 }
             }
         }
