@@ -8,7 +8,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors({
-    origin: ['http://localhost:3000', 'https://krupnikas.github.io'],
+    origin: ['http://localhost:3000', 'http://localhost:8080', 'https://krupnikas.github.io'],
     credentials: true
 }));
 app.use(express.json());
@@ -58,7 +58,7 @@ app.get('/api/generate', (req, res) => {
 
 // Догенерация в области viewport
 app.post('/api/expand', (req, res) => {
-    const { sessionId, bounds } = req.body;
+    const { sessionId, bounds, depth = 2 } = req.body;
 
     if (!sessionId || !sessions.has(sessionId)) {
         return res.status(400).json({ error: 'Invalid session' });
@@ -77,60 +77,25 @@ app.post('/api/expand', (req, res) => {
 
     // Генерируем пока есть кандидаты с пересечениями в области
     while (wordsAdded < maxWordsToAdd && (Date.now() - startTime) < maxTimeMs) {
-        // Находим всех кандидатов в области с пересечениями
-        const candidatesWithConstraints = [];
-        for (const c of crossword.firstLetterCandidates) {
-            if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+        // Находим всех кандидатов в области
+        const candidatesInBounds = crossword.firstLetterCandidates.filter(
+            c => c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1
+        );
 
-            const constraints = crossword.getConstraintsForCandidate(c.x, c.y, c.direction);
-            if (constraints) {
-                candidatesWithConstraints.push({ candidate: c, constraints });
-            }
-        }
+        if (candidatesInBounds.length === 0) break;
 
-        if (candidatesWithConstraints.length === 0) break;
-
-        // Ищем лучшее слово среди всех кандидатов
+        // Ищем лучшее слово с учётом глубины просчёта
         let bestWord = null;
         let maxScore = 0;
 
-        for (const { candidate, constraints } of candidatesWithConstraints) {
-            const matchingWords = crossword.wordIndex.findByConstraints(constraints, 1, 10);
+        for (const candidate of candidatesInBounds) {
+            const validWords = crossword.getValidWordsForCandidate(candidate);
 
-            for (const word of matchingWords) {
-                if (!crossword.canPlaceWord(candidate.x, candidate.y, candidate.direction, word.length)) {
-                    continue;
-                }
-
-                let valid = true;
-                let intersections = 0;
-
-                for (let i = 0; i < word.length; i++) {
-                    const existingLetter = candidate.direction === "horizontal"
-                        ? crossword.getCellLetter(candidate.x + i, candidate.y)
-                        : crossword.getCellLetter(candidate.x, candidate.y + i);
-
-                    if (existingLetter !== null) {
-                        if (existingLetter === word[i]) {
-                            intersections++;
-                        } else {
-                            valid = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (!valid || intersections === 0) continue;
-
-                const score = word.length + intersections;
+            for (const wordData of validWords) {
+                const score = crossword.scoreWord(wordData, depth - 1);
                 if (score > maxScore) {
                     maxScore = score;
-                    bestWord = {
-                        word: word,
-                        x: candidate.x,
-                        y: candidate.y,
-                        direction: candidate.direction
-                    };
+                    bestWord = wordData;
                 }
             }
         }

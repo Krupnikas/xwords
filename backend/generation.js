@@ -67,8 +67,6 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y - 1, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y + 1, "horizontal"));
-                // Блокируем vertical сверху — слово не может закончиться вплотную
-                this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y - 1, "vertical"));
             }
         }
         if (crosswordWord.direction === "vertical") {
@@ -81,8 +79,6 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + 1, crosswordWord.y + i, "vertical"));
-                // Блокируем horizontal слева — слово не может закончиться вплотную
-                this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y + i, "horizontal"));
             }
         }
 
@@ -166,6 +162,28 @@ class Crossword {
     }
 
     /**
+     * Создать снимок состояния для отката
+     */
+    snapshot() {
+        return {
+            words: [...this.words],
+            firstLetterCandidates: [...this.firstLetterCandidates],
+            blockedCells: new Set(this.blockedCells),
+            removedWords: this.wordIndex.snapshot()
+        };
+    }
+
+    /**
+     * Восстановить состояние из снимка
+     */
+    restore(snapshot) {
+        this.words = snapshot.words;
+        this.firstLetterCandidates = snapshot.firstLetterCandidates;
+        this.blockedCells = snapshot.blockedCells;
+        this.wordIndex.restore(snapshot.removedWords);
+    }
+
+    /**
      * Проверить можно ли разместить слово (нет blocked cells).
      * Если в позиции есть буква (пересечение), блокировка игнорируется.
      */
@@ -186,61 +204,112 @@ class Crossword {
         return true;
     }
 
-    generate(wordsCount = 5) {
+    generate(wordsCount = 5, depth = 2) {
         for (let i = 0; i < wordsCount; i++) {
-            this.generateWord();
+            this.generateWord(depth);
         }
     }
 
-    generateWord() {
+    /**
+     * Получить все валидные слова для кандидата с их базовым скором
+     */
+    getValidWordsForCandidate(cell) {
+        const constraints = this.getConstraintsForCandidate(cell.x, cell.y, cell.direction);
+        if (constraints === null) return [];
+
+        const matchingWords = this.wordIndex.findByConstraints(constraints, 1, maxWordLength);
+        const validWords = [];
+
+        for (const word of matchingWords) {
+            if (!this.canPlaceWord(cell.x, cell.y, cell.direction, word.length)) {
+                continue;
+            }
+
+            let valid = true;
+            let intersections = 0;
+
+            for (let i = 0; i < word.length; i++) {
+                const existingLetter = cell.direction === "horizontal"
+                    ? this.getCellLetter(cell.x + i, cell.y)
+                    : this.getCellLetter(cell.x, cell.y + i);
+
+                if (existingLetter !== null) {
+                    if (existingLetter === word[i]) {
+                        intersections++;
+                    } else {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!valid || intersections === 0) continue;
+
+            validWords.push({
+                word: word,
+                x: cell.x,
+                y: cell.y,
+                direction: cell.direction,
+                baseScore: word.length * intersections
+            });
+        }
+
+        return validWords;
+    }
+
+    /**
+     * Рекурсивно вычислить скор слова с учётом будущих ходов
+     * Для оптимизации проверяем только топ-N кандидатов по базовому скору
+     */
+    scoreWord(wordData, depth, maxCandidates = 10) {
+        if (depth <= 0) {
+            return wordData.baseScore;
+        }
+
+        // Сохраняем состояние
+        const snap = this.snapshot();
+
+        // Добавляем слово
+        this.addWord(wordData);
+
+        // Собираем все валидные слова со скорами
+        const allNextWords = [];
+        for (const cell of this.firstLetterCandidates) {
+            const validWords = this.getValidWordsForCandidate(cell);
+            allNextWords.push(...validWords);
+        }
+
+        // Сортируем по базовому скору и берём топ-N
+        allNextWords.sort((a, b) => b.baseScore - a.baseScore);
+        const topCandidates = allNextWords.slice(0, maxCandidates);
+
+        // Находим лучший следующий ход
+        let bestFutureScore = 0;
+        for (const nextWord of topCandidates) {
+            const futureScore = this.scoreWord(nextWord, depth - 1, maxCandidates);
+            if (futureScore > bestFutureScore) {
+                bestFutureScore = futureScore;
+            }
+        }
+
+        // Восстанавливаем состояние
+        this.restore(snap);
+
+        return wordData.baseScore + bestFutureScore;
+    }
+
+    generateWord(depth = 2) {
         let maxScore = 0;
         let bestWord = null;
 
         for (const cell of this.firstLetterCandidates) {
-            // Получаем ограничения (известные буквы)
-            const constraints = this.getConstraintsForCandidate(cell.x, cell.y, cell.direction);
+            const validWords = this.getValidWordsForCandidate(cell);
 
-            // Слово должно пересекаться с существующим
-            if (constraints === null) continue;
-
-            // Получаем только подходящие слова из индекса — O(1) вместо O(n)
-            const matchingWords = this.wordIndex.findByConstraints(constraints, 1, maxWordLength);
-
-            for (const word of matchingWords) {
-                if (!this.canPlaceWord(cell.x, cell.y, cell.direction, word.length)) {
-                    continue;
-                }
-
-                // Считаем пересечения
-                let valid = true;
-                let intersections = 0;
-
-                for (let i = 0; i < word.length; i++) {
-                    const existingLetter = cell.direction === "horizontal"
-                        ? this.getCellLetter(cell.x + i, cell.y)
-                        : this.getCellLetter(cell.x, cell.y + i);
-
-                    if (existingLetter !== null) {
-                        if (existingLetter === word[i]) {
-                            intersections++;
-                        } else {
-                            valid = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (!valid || intersections === 0) continue;
-
-                const score = word.length + intersections;
+            for (const wordData of validWords) {
+                const score = this.scoreWord(wordData, depth - 1);
                 if (score > maxScore) {
                     maxScore = score;
-                    bestWord = {
-                        word: word,
-                        x: cell.x,
-                        y: cell.y,
-                        direction: cell.direction
-                    };
+                    bestWord = wordData;
                 }
             }
         }
@@ -253,7 +322,7 @@ class Crossword {
         }
 
         if (this.debug) {
-            console.log(`[generate] Adding: ${bestWord.word} at (${bestWord.x}, ${bestWord.y}) ${bestWord.direction}`);
+            console.log(`[generate] Adding: ${bestWord.word} at (${bestWord.x}, ${bestWord.y}) ${bestWord.direction}, score: ${maxScore}`);
         }
         this.addWord(bestWord);
     }

@@ -122,6 +122,20 @@ class WordIndex {
     hasWord(word) {
         return this.allWords.has(word);
     }
+
+    /**
+     * Создать снимок удалённых слов
+     */
+    snapshot() {
+        return new Set(this.allWords);
+    }
+
+    /**
+     * Восстановить из снимка
+     */
+    restore(allWordsSnapshot) {
+        this.allWords = allWordsSnapshot;
+    }
 }
 
 module.exports = { WordIndex };
