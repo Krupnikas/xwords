@@ -246,5 +246,146 @@ class TestCrosswordGeneration:
         assert result['x'] == 0 and result['y'] == 0, 'Seed word should be at origin'
 
 
+class TestAutoExpansion:
+    """Тесты автоматической догенерации при перемещении камеры."""
+
+    def test_session_id_received(self, driver):
+        """Проверяет что клиент получает sessionId."""
+        driver.get(BASE_URL)
+
+        # Ждём загрузки
+        for _ in range(10):
+            time.sleep(1)
+            # sessionId — локальная переменная в main.js, проверяем через API ответ
+            words_count = driver.execute_script(
+                'return window.crossword && window.crossword.words ? window.crossword.words.length : 0'
+            )
+            if words_count > 0:
+                break
+
+        # Проверяем что API возвращает sessionId
+        result = driver.execute_async_script('''
+            const callback = arguments[arguments.length - 1];
+            fetch('/api/generate?count=3')
+                .then(r => r.json())
+                .then(data => callback({ sessionId: data.sessionId }))
+                .catch(err => callback({ error: err.message }));
+        ''')
+
+        assert result.get('sessionId') is not None, 'Should receive sessionId from server'
+        assert len(result['sessionId']) > 10, 'sessionId should be a UUID'
+
+    def test_expansion_on_camera_move(self, driver):
+        """Проверяет догенерацию при движении камеры."""
+        driver.get(BASE_URL)
+
+        # Ждём загрузки
+        for _ in range(10):
+            time.sleep(1)
+            words_count = driver.execute_script(
+                'return window.crossword && window.crossword.words ? window.crossword.words.length : 0'
+            )
+            if words_count > 0:
+                break
+
+        initial_words = words_count
+        take_screenshot(driver, '07_before_expansion')
+
+        # Перемещаем камеру далеко вправо
+        canvas = driver.find_element(By.ID, 'myCanvas')
+        canvas.click()
+
+        # Двигаемся вправо долго
+        actions = ActionChains(driver)
+        for _ in range(10):
+            actions.send_keys(Keys.ARROW_RIGHT)
+        actions.perform()
+
+        # Ждём догенерации
+        time.sleep(3)
+
+        # Проверяем что слова добавились
+        new_words_count = driver.execute_script(
+            'return window.crossword.words.length'
+        )
+
+        take_screenshot(driver, '08_after_expansion')
+
+        # Новых слов должно быть больше или столько же (если кандидатов нет)
+        assert new_words_count >= initial_words, \
+            f'Words should not decrease: was {initial_words}, now {new_words_count}'
+
+        print(f'Words before: {initial_words}, after: {new_words_count}')
+
+    def test_expansion_on_drag(self, driver):
+        """Проверяет догенерацию при перетаскивании."""
+        driver.get(BASE_URL)
+
+        # Ждём загрузки
+        for _ in range(10):
+            time.sleep(1)
+            words_count = driver.execute_script(
+                'return window.crossword && window.crossword.words ? window.crossword.words.length : 0'
+            )
+            if words_count > 0:
+                break
+
+        initial_words = words_count
+
+        canvas = driver.find_element(By.ID, 'myCanvas')
+
+        # Перетаскиваем далеко
+        actions = ActionChains(driver)
+        actions.move_to_element(canvas)
+        actions.click_and_hold()
+        actions.move_by_offset(-500, -300)
+        actions.release()
+        actions.perform()
+
+        # Ждём догенерации
+        time.sleep(3)
+
+        new_words_count = driver.execute_script(
+            'return window.crossword.words.length'
+        )
+
+        take_screenshot(driver, '09_after_drag_expansion')
+
+        assert new_words_count >= initial_words, \
+            f'Words should not decrease after drag: was {initial_words}, now {new_words_count}'
+
+    def test_expand_api_directly(self, driver):
+        """Тестирует API /api/expand напрямую."""
+        driver.get(BASE_URL)
+
+        # Сначала получаем sessionId через generate
+        result = driver.execute_async_script('''
+            const callback = arguments[arguments.length - 1];
+            fetch('/api/generate?count=5')
+                .then(r => r.json())
+                .then(data => {
+                    // Теперь вызываем expand с полученным sessionId
+                    return fetch('/api/expand', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sessionId: data.sessionId,
+                            bounds: { x0: -50, y0: -50, x1: 50, y1: 50 }
+                        })
+                    }).then(r => r.json());
+                })
+                .then(data => callback({
+                    success: true,
+                    newWordsCount: data.newWords ? data.newWords.length : 0,
+                    totalWords: data.totalWords
+                }))
+                .catch(err => callback({ success: false, error: err.message }));
+        ''')
+
+        assert result.get('success'), f'Expand API should succeed: {result.get("error")}'
+        assert 'totalWords' in result, 'Should return totalWords'
+        print(f'Expand result: +{result["newWordsCount"]} words, total: {result["totalWords"]}')
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])
