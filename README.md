@@ -9,7 +9,9 @@
 ### Особенности
 
 - **Бесконечная генерация** — алгоритм расширяет кроссворд, добавляя слова перпендикулярно существующим
+- **Авто-расширение** — новые слова генерируются при перемещении камеры
 - **Жадный алгоритм** — выбирает слова с максимальным количеством пересечений
+- **O(1) поиск слов** — индекс по буквам для быстрой фильтрации
 - **Ленивый рендеринг** — отрисовываются только видимые клетки
 - **Плавная навигация** — управление камерой с интерполяцией
 
@@ -21,18 +23,28 @@ crossword/
 │   ├── index.html      # HTML страница с canvas
 │   ├── interface.js    # Рендеринг и управление камерой (Paper.js)
 │   ├── generation.js   # Класс Crossword для отображения
-│   └── main.js         # Инициализация и загрузка с API
+│   └── main.js         # Инициализация, загрузка и авто-расширение
 ├── backend/
 │   ├── package.json    # Зависимости Node.js
-│   ├── server.js       # Express сервер
+│   ├── server.js       # Express сервер с сессиями
 │   ├── generation.js   # Алгоритм генерации кроссворда
-│   └── wordsBank.js    # Банк русских слов
+│   ├── wordIndex.js    # O(1) индекс слов по буквам
+│   ├── wordsBank.js    # Банк русских слов
+│   └── deploy.sh       # Скрипт деплоя на сервер
+├── tests/
+│   ├── test_crossword.py  # Selenium тесты
+│   ├── requirements.txt   # Python зависимости
+│   └── run_tests.sh       # Запуск тестов
+├── .github/workflows/
+│   ├── deploy.yml         # Деплой frontend на GitHub Pages
+│   ├── deploy-backend.yml # Деплой backend на mc.skrup.ru
+│   └── auto-merge.yml     # Авто-мерж feature веток в dev
 └── README.md
 ```
 
 ## Запуск
 
-### Backend
+### Backend (локально)
 
 ```bash
 cd backend
@@ -47,6 +59,27 @@ npm start
 Открыть `frontend/index.html` в браузере или использовать live server.
 
 **Важно:** Бэкенд должен быть запущен перед открытием фронтенда.
+
+## Продакшен
+
+- **Backend:** `http://mc.skrup.ru:3000`
+- **Frontend:** GitHub Pages (ветка `dev`)
+
+### Деплой бэкенда
+
+Ручной деплой:
+```bash
+cd backend
+./deploy.sh
+```
+
+Автоматический деплой: push в ветку `dev` с изменениями в `backend/` запускает GitHub Action.
+
+Бэкенд работает через pm2:
+```bash
+ssh sergey@mc.skrup.ru "pm2 status crossword-api"
+ssh sergey@mc.skrup.ru "pm2 logs crossword-api"
+```
 
 ## API
 
@@ -66,6 +99,7 @@ GET /api/generate?count=50&seed=программа
 **Ответ:**
 ```json
 {
+  "sessionId": "uuid",
   "words": [
     { "word": "кроссворд", "x": 0, "y": 0, "direction": "horizontal" },
     { "word": "время", "x": 5, "y": -4, "direction": "vertical" }
@@ -73,6 +107,27 @@ GET /api/generate?count=50&seed=программа
   "firstLetterCandidates": [
     { "x": 0, "y": -1, "direction": "vertical" }
   ]
+}
+```
+
+### POST /api/expand
+
+Расширяет кроссворд в указанной области (для авто-расширения при движении камеры).
+
+**Body:**
+```json
+{
+  "sessionId": "uuid из /api/generate",
+  "bounds": { "x0": -50, "y0": -50, "x1": 50, "y1": 50 }
+}
+```
+
+**Ответ:**
+```json
+{
+  "newWords": [...],
+  "totalWords": 42,
+  "firstLetterCandidates": [...]
 }
 ```
 

@@ -1,7 +1,7 @@
 // API URL: локально или продакшен
 const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000'
-    : 'https://mc.skrup.ru:3000';
+    : 'http://mc.skrup.ru:3000';
 
 let sessionId = null;
 let isExpanding = false;
