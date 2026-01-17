@@ -7,7 +7,10 @@ const { Crossword } = require('./generation');
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:3000', 'https://krupnikas.github.io'],
+    credentials: true
+}));
 app.use(express.json());
 
 // Раздача фронтенда
