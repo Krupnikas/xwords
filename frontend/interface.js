@@ -37,12 +37,14 @@ function createCell(x, y, color, label) {
         strokeColor: 'gray'
     });
     content = label || `(${x}, ${y})`;
+    const isLetter = label && label.length === 1 && /[а-яёa-z]/i.test(label);
     const text = new paper.PointText({
-        point: position.add([gridSize / 2, gridSize / 2]),
+        point: position.add([gridSize / 2, gridSize / 2 + (isLetter ? 4 : 0)]),
         content: content,
         justification: 'center',
         fillColor: 'black',
-        fontSize: 12
+        fontSize: isLetter ? 28 : 12,
+        fontWeight: isLetter ? 'bold' : 'normal'
     });
     const group = new paper.Group([rect, text]);
     group.data.coords = [x, y];
