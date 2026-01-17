@@ -67,7 +67,8 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y - 1, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y + 1, "horizontal"));
-                // НЕ блокируем vertical снизу — там могут быть пересечения
+                // Блокируем vertical сверху — слово не может закончиться вплотную
+                this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y - 1, "vertical"));
             }
         }
         if (crosswordWord.direction === "vertical") {
@@ -80,7 +81,8 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + 1, crosswordWord.y + i, "vertical"));
-                // НЕ блокируем horizontal справа — там могут быть пересечения
+                // Блокируем horizontal слева — слово не может закончиться вплотную
+                this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y + i, "horizontal"));
             }
         }
 
