@@ -137,14 +137,14 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
             const orange = new paper.Color(0.95, 0.85, 0.7); // blocked both
 
             if (letter) {
-                // Клетка с буквой - показываем фон кандидата если есть
+                // Клетка с буквой - показываем очень светлый фон кандидата если есть
                 let bgColor = new paper.Color(1, 1, 1); // белый по умолчанию
                 if (hasHorizontal && hasVertical) {
-                    bgColor = purple;
+                    bgColor = new paper.Color(0.94, 0.92, 0.97); // очень светлый фиолетовый
                 } else if (hasHorizontal) {
-                    bgColor = blue;
+                    bgColor = new paper.Color(0.92, 0.92, 0.97); // очень светлый синий
                 } else if (hasVertical) {
-                    bgColor = green;
+                    bgColor = new paper.Color(0.92, 0.97, 0.92); // очень светлый зелёный
                 }
                 addCellToInterfaceCache(x, y, bgColor, letter);
                 continue;
