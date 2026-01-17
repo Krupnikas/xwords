@@ -1,7 +1,7 @@
 // API URL: локально или продакшен
 const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:3000'
-    : 'http://mc.skrup.ru:3000';
+    ? 'http://localhost:3000/api'
+    : 'https://mc.skrup.ru/xwords-api';
 
 let sessionId = null;
 let isExpanding = false;
@@ -10,7 +10,7 @@ let lastExpandBounds = null;
 async function loadCrossword(count = 30) {
     try {
         console.log('Loading crossword from API...');
-        const response = await fetch(`${API_URL}/api/generate?count=${count}`);
+        const response = await fetch(`${API_URL}/generate?count=${count}`);
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
         }
@@ -71,7 +71,7 @@ async function expandCrossword() {
     isExpanding = true;
 
     try {
-        const response = await fetch(`${API_URL}/api/expand`, {
+        const response = await fetch(`${API_URL}/expand`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId, bounds })
