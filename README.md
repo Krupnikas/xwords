@@ -62,8 +62,8 @@ npm start
 
 ## Продакшен
 
-- **Backend:** `http://mc.skrup.ru:3000`
-- **Frontend:** GitHub Pages (ветка `dev`)
+- **Backend:** http://mc.skrup.ru:3000
+- **Frontend:** https://krupnikas.github.io/xwords/
 
 ### Деплой бэкенда
 
