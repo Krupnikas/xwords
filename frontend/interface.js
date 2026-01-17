@@ -89,47 +89,53 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
     const startY = Math.floor((viewBounds.top + offset.y) / gridSize) - cacheSize;
     const endY = Math.ceil((viewBounds.bottom + offset.y) / gridSize) + cacheSize;
 
+    crossword = crossword || window.crossword;
+    activeCell = activeCell || crossword.activeCell;
+    firstLetterCandidates = firstLetterCandidates || crossword.firstLetterCandidates;
+    const blockedCells = crossword && crossword.blockedCells;
+
+    // Строим индексы для O(1) поиска
+    const candidateIndex = new Map(); // key -> {h: bool, v: bool}
+    if (firstLetterCandidates) {
+        for (const c of firstLetterCandidates) {
+            const key = `${c.x},${c.y}`;
+            if (!candidateIndex.has(key)) {
+                candidateIndex.set(key, { h: false, v: false });
+            }
+            if (c.direction === "horizontal") candidateIndex.get(key).h = true;
+            if (c.direction === "vertical") candidateIndex.get(key).v = true;
+        }
+    }
+
+    const blockedIndex = new Map(); // key -> {h: bool, v: bool}
+    if (blockedCells) {
+        for (const b of blockedCells) {
+            const key = `${b.x},${b.y}`;
+            if (!blockedIndex.has(key)) {
+                blockedIndex.set(key, { h: false, v: false });
+            }
+            if (b.direction === "horizontal") blockedIndex.get(key).h = true;
+            if (b.direction === "vertical") blockedIndex.get(key).v = true;
+        }
+    }
+
     // Добавляем видимые ячейки
     for (let x = startX; x <= endX; x++) {
         for (let y = startY; y <= endY; y++) {
-            // if candidateList has (x, y) then light green color
-            // if activeCell is (x, y) then light blue color
-            // if crossword has (x, y) then use white color and letter from crossword
-            // else use default color
-
             const key = `${x},${y}`;
             if (objects.has(key)) {
                 continue; // already exists
             }
 
-            crossword = crossword || window.crossword;
-            activeCell = activeCell || crossword.activeCell;
-            firstLetterCandidates = firstLetterCandidates || crossword.firstLetterCandidates;
-            const blockedCells = crossword && crossword.blockedCells;
+            // O(1) поиск кандидатов
+            const candidateInfo = candidateIndex.get(key);
+            const hasHorizontal = candidateInfo?.h || false;
+            const hasVertical = candidateInfo?.v || false;
 
-            // Проверяем кандидатов для этой клетки
-            let hasHorizontal = false;
-            let hasVertical = false;
-            if (firstLetterCandidates) {
-                for (const candidate of firstLetterCandidates) {
-                    if (candidate.x === x && candidate.y === y) {
-                        if (candidate.direction === "horizontal") hasHorizontal = true;
-                        if (candidate.direction === "vertical") hasVertical = true;
-                    }
-                }
-            }
-
-            // Проверяем заблокированные клетки
-            let blockedHorizontal = false;
-            let blockedVertical = false;
-            if (blockedCells) {
-                for (const blocked of blockedCells) {
-                    if (blocked.x === x && blocked.y === y) {
-                        if (blocked.direction === "horizontal") blockedHorizontal = true;
-                        if (blocked.direction === "vertical") blockedVertical = true;
-                    }
-                }
-            }
+            // O(1) поиск заблокированных
+            const blockedInfo = blockedIndex.get(key);
+            const blockedHorizontal = blockedInfo?.h || false;
+            const blockedVertical = blockedInfo?.v || false;
 
             const letter = crossword && crossword.getCellLetter(x, y);
             const green = new paper.Color(0.6, 0.9, 0.6);  // vertical candidate
