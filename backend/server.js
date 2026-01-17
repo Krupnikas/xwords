@@ -83,47 +83,65 @@ app.post('/api/expand', (req, res) => {
 
     console.log(`[expand] bounds: x=${extX0}..${x1}, y=${extY0}..${y1}, candidates=${crossword.firstLetterCandidates.length}`);
 
-    // Генерируем пока есть кандидаты с пересечениями в области
+    // Основной цикл: пробуем добавлять слова с пересечениями,
+    // если не получается - добавляем пустое слово и пробуем снова
+    let emptyWordsAdded = 0;
+
     while (wordsAdded < maxWordsToAdd && (Date.now() - startTime) < maxTimeMs) {
-        // Находим кандидатов в расширенных границах
+        // Пробуем добавить слово с пересечением
         const candidatesInBounds = crossword.firstLetterCandidates.filter(
             c => c.x >= extX0 && c.x <= x1 && c.y >= extY0 && c.y <= y1
         );
 
-        if (candidatesInBounds.length === 0) break;
+        let addedWithIntersection = false;
 
-        // Собираем все валидные слова с базовыми скорами
-        const allValidWords = [];
-        for (const candidate of candidatesInBounds) {
-            const validWords = crossword.getValidWordsForCandidate(candidate);
-            allValidWords.push(...validWords);
-        }
+        if (candidatesInBounds.length > 0) {
+            const allValidWords = [];
+            for (const candidate of candidatesInBounds) {
+                const validWords = crossword.getValidWordsForCandidate(candidate);
+                allValidWords.push(...validWords);
+            }
 
-        if (allValidWords.length === 0) break;
+            if (allValidWords.length > 0) {
+                allValidWords.sort((a, b) => b.baseScore - a.baseScore);
+                const topCandidates = allValidWords.slice(0, 50);
 
-        // Сортируем по базовому скору и берём топ-50 для детальной проверки
-        allValidWords.sort((a, b) => b.baseScore - a.baseScore);
-        const topCandidates = allValidWords.slice(0, 50);
+                let bestWord = null;
+                let maxScore = 0;
 
-        // Ищем лучшее слово с учётом глубины просчёта
-        let bestWord = null;
-        let maxScore = 0;
+                for (const wordData of topCandidates) {
+                    const score = crossword.scoreWord(wordData, depth - 1);
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestWord = wordData;
+                    }
+                }
 
-        for (const wordData of topCandidates) {
-            const score = crossword.scoreWord(wordData, depth - 1);
-            if (score > maxScore) {
-                maxScore = score;
-                bestWord = wordData;
+                if (bestWord) {
+                    crossword.addWord(bestWord);
+                    wordsAdded++;
+                    addedWithIntersection = true;
+                }
             }
         }
 
-        if (bestWord) {
-            crossword.addWord(bestWord);
-            wordsAdded++;
-        } else {
-            // Нет подходящих слов
-            break;
+        // Если не удалось добавить с пересечением - пробуем пустое место
+        // Границы для пустых слов: экран + 10 клеток с каждой стороны
+        if (!addedWithIntersection) {
+            const emptyWord = crossword.findWordInEmptySpace(x0 - 10, y0 - 10, x1 + 10, y1 + 10);
+            if (emptyWord) {
+                crossword.addWordToEmptySpace(emptyWord);
+                wordsAdded++;
+                emptyWordsAdded++;
+            } else {
+                // Нет места даже для пустого слова - выходим
+                break;
+            }
         }
+    }
+
+    if (emptyWordsAdded > 0) {
+        console.log(`[expand] added ${emptyWordsAdded} words in empty spaces`);
     }
 
     console.log(`[expand] done: +${wordsAdded} words in ${Date.now() - startTime}ms`);

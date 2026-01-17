@@ -106,6 +106,14 @@ async function expandCrossword() {
         clearInterfaceCache();
         updateVisibleObjects();
 
+        // Если были добавлены слова - сразу запускаем следующий expand
+        // чтобы продолжить заполнение пустых мест
+        if (hasNewWords) {
+            isExpanding = false;
+            scheduleExpansion();
+            return;
+        }
+
         lastExpandBounds = bounds;
     } catch (error) {
         console.error('Failed to expand crossword:', error);
