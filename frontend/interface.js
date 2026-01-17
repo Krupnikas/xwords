@@ -4,6 +4,12 @@ const gridSize = 50;
 const cacheSize = 1;  // Расширение видимой области для кэширования
 let objects = new Map();  // Хранилище видимых объектов
 
+// Кэшированные индексы для O(1) поиска
+let cachedCandidateIndex = new Map();
+let cachedBlockedIndex = new Map();
+let lastCandidatesRef = null;
+let lastBlockedRef = null;
+
 let moveDirection = new paper.Point(0, 0);  // Направление движения камеры
 let targetOffset = new paper.Point(0, 0);   // Целевая позиция камеры
 const smoothFactor = 0.05;                   // Коэффициент сглаживания
@@ -94,30 +100,39 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
     firstLetterCandidates = firstLetterCandidates || crossword.firstLetterCandidates;
     const blockedCells = crossword && crossword.blockedCells;
 
-    // Строим индексы для O(1) поиска
-    const candidateIndex = new Map(); // key -> {h: bool, v: bool}
-    if (firstLetterCandidates) {
-        for (const c of firstLetterCandidates) {
-            const key = `${c.x},${c.y}`;
-            if (!candidateIndex.has(key)) {
-                candidateIndex.set(key, { h: false, v: false });
+    // Перестраиваем индексы только если данные изменились
+    if (firstLetterCandidates !== lastCandidatesRef) {
+        cachedCandidateIndex = new Map();
+        if (firstLetterCandidates) {
+            for (const c of firstLetterCandidates) {
+                const key = `${c.x},${c.y}`;
+                if (!cachedCandidateIndex.has(key)) {
+                    cachedCandidateIndex.set(key, { h: false, v: false });
+                }
+                if (c.direction === "horizontal") cachedCandidateIndex.get(key).h = true;
+                if (c.direction === "vertical") cachedCandidateIndex.get(key).v = true;
             }
-            if (c.direction === "horizontal") candidateIndex.get(key).h = true;
-            if (c.direction === "vertical") candidateIndex.get(key).v = true;
         }
+        lastCandidatesRef = firstLetterCandidates;
     }
 
-    const blockedIndex = new Map(); // key -> {h: bool, v: bool}
-    if (blockedCells) {
-        for (const b of blockedCells) {
-            const key = `${b.x},${b.y}`;
-            if (!blockedIndex.has(key)) {
-                blockedIndex.set(key, { h: false, v: false });
+    if (blockedCells !== lastBlockedRef) {
+        cachedBlockedIndex = new Map();
+        if (blockedCells) {
+            for (const b of blockedCells) {
+                const key = `${b.x},${b.y}`;
+                if (!cachedBlockedIndex.has(key)) {
+                    cachedBlockedIndex.set(key, { h: false, v: false });
+                }
+                if (b.direction === "horizontal") cachedBlockedIndex.get(key).h = true;
+                if (b.direction === "vertical") cachedBlockedIndex.get(key).v = true;
             }
-            if (b.direction === "horizontal") blockedIndex.get(key).h = true;
-            if (b.direction === "vertical") blockedIndex.get(key).v = true;
         }
+        lastBlockedRef = blockedCells;
     }
+
+    const candidateIndex = cachedCandidateIndex;
+    const blockedIndex = cachedBlockedIndex;
 
     // Добавляем видимые ячейки
     for (let x = startX; x <= endX; x++) {

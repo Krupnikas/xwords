@@ -86,22 +86,22 @@ async function expandCrossword() {
 
         const data = await response.json();
 
-        if (data.newWords && data.newWords.length > 0) {
+        const hasNewWords = data.newWords && data.newWords.length > 0;
+
+        if (hasNewWords) {
             // Добавляем новые слова
             for (const word of data.newWords) {
                 window.crossword.words.push(word);
             }
-        }
 
-        // Обновляем кандидатов и заблокированные клетки
-        window.crossword.firstLetterCandidates = data.firstLetterCandidates;
-        window.crossword.blockedCells = data.blockedCells;
+            // Обновляем кандидатов и заблокированные клетки
+            window.crossword.firstLetterCandidates = data.firstLetterCandidates;
+            window.crossword.blockedCells = data.blockedCells;
 
-        // Перерисовываем
-        clearInterfaceCache();
-        updateVisibleObjects();
+            // Перерисовываем только если есть изменения
+            clearInterfaceCache();
+            updateVisibleObjects();
 
-        if (data.newWords && data.newWords.length > 0) {
             console.log(`Expanded: +${data.newWords.length} words, total: ${data.totalWords}`);
         }
 
