@@ -28,7 +28,7 @@ async function loadCrossword() {
         await expandCrossword();
     } catch (error) {
         console.error('Failed to load crossword:', error);
-        alert('Не удалось загрузить кроссворд. Убедитесь что сервер запущен на http://localhost:3000');
+        alert(`Не удалось загрузить кроссворд. Ошибка: ${error.message}`);
     }
 }
 

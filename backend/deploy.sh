@@ -3,6 +3,7 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REMOTE_USER="sergey"
 REMOTE_HOST="mc.skrup.ru"
 REMOTE_DIR="~/crossword-backend"
@@ -10,17 +11,17 @@ REMOTE_DIR="~/crossword-backend"
 echo "Deploying to $REMOTE_USER@$REMOTE_HOST..."
 
 # Создаём директорию если нет
-ssh "$REMOTE_USER@$REMOTE_HOST" "mkdir -p $REMOTE_DIR/backend"
+ssh "$REMOTE_USER@$REMOTE_HOST" "mkdir -p $REMOTE_DIR"
 
-# Синхронизируем backend
+# Синхронизируем только backend папку
 rsync -avz --delete \
     --exclude 'node_modules' \
     --exclude '.git' \
-    ./ "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/backend/"
+    "$SCRIPT_DIR/" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
 
 # Устанавливаем зависимости и перезапускаем
 ssh "$REMOTE_USER@$REMOTE_HOST" << 'EOF'
-    cd ~/crossword-backend/backend
+    cd ~/crossword-backend
     npm install --production
 
     # Проверяем pm2
@@ -29,7 +30,8 @@ ssh "$REMOTE_USER@$REMOTE_HOST" << 'EOF'
     fi
 
     # Перезапускаем сервер
-    pm2 restart crossword-api 2>/dev/null || pm2 start server.js --name crossword-api
+    pm2 delete crossword-api 2>/dev/null || true
+    pm2 start server.js --name crossword-api
     pm2 save
 
     echo "Backend deployed and running!"
