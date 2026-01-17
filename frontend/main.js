@@ -88,22 +88,23 @@ async function expandCrossword() {
 
         const hasNewWords = data.newWords && data.newWords.length > 0;
 
+        // Добавляем новые слова
         if (hasNewWords) {
-            // Добавляем новые слова
             for (const word of data.newWords) {
                 window.crossword.words.push(word);
             }
-
-            // Обновляем кандидатов и заблокированные клетки
-            window.crossword.firstLetterCandidates = data.firstLetterCandidates;
-            window.crossword.blockedCells = data.blockedCells;
-
-            // Перерисовываем только если есть изменения
-            clearInterfaceCache();
-            updateVisibleObjects();
-
             console.log(`Expanded: +${data.newWords.length} words, total: ${data.totalWords}`);
         }
+
+        // Обновляем кандидатов и заблокированные клетки всегда
+        // (они могут измениться даже если новых слов нет)
+        window.crossword.firstLetterCandidates = data.firstLetterCandidates;
+        window.crossword.blockedCells = data.blockedCells;
+
+        // Перерисовываем - clearInterfaceCache нужен чтобы удалить старые кандидаты
+        // которые больше не актуальны
+        clearInterfaceCache();
+        updateVisibleObjects();
 
         lastExpandBounds = bounds;
     } catch (error) {
