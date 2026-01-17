@@ -103,6 +103,7 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
             crossword = crossword || window.crossword;
             activeCell = activeCell || crossword.activeCell;
             firstLetterCandidates = firstLetterCandidates || crossword.firstLetterCandidates;
+            const blockedCells = crossword && crossword.blockedCells;
 
             // Проверяем кандидатов для этой клетки
             let hasHorizontal = false;
@@ -116,10 +117,24 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
                 }
             }
 
+            // Проверяем заблокированные клетки
+            let blockedHorizontal = false;
+            let blockedVertical = false;
+            if (blockedCells) {
+                for (const blocked of blockedCells) {
+                    if (blocked.x === x && blocked.y === y) {
+                        if (blocked.direction === "horizontal") blockedHorizontal = true;
+                        if (blocked.direction === "vertical") blockedVertical = true;
+                    }
+                }
+            }
+
             const letter = crossword && crossword.getCellLetter(x, y);
-            const green = new paper.Color(0.6, 0.9, 0.6);  // vertical
-            const blue = new paper.Color(0.6, 0.6, 0.9);   // horizontal
-            const purple = new paper.Color(0.7, 0.6, 0.9); // both
+            const green = new paper.Color(0.6, 0.9, 0.6);  // vertical candidate
+            const blue = new paper.Color(0.6, 0.6, 0.9);   // horizontal candidate
+            const purple = new paper.Color(0.7, 0.6, 0.9); // both candidates
+            const red = new paper.Color(0.95, 0.7, 0.7);   // blocked
+            const orange = new paper.Color(0.95, 0.85, 0.7); // blocked both
 
             if (letter) {
                 // Клетка с буквой - показываем фон кандидата если есть
@@ -138,8 +153,8 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
                 addCellToInterfaceCache(x, y, new paper.Color(1, 0.6, 0.6));
                 continue;
             }
+            // Кандидаты (зелёный/синий/фиолетовый)
             else if (hasHorizontal && hasVertical) {
-                // Оба направления - смешанный цвет и диагональная стрелка
                 addCellToInterfaceCache(x, y, purple, "↘");
                 continue;
             }
@@ -151,7 +166,21 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
                 addCellToInterfaceCache(x, y, green, "↓");
                 continue;
             }
-            addCellToInterfaceCache(x, y);
+            // Заблокированные (красный/оранжевый)
+            else if (blockedHorizontal && blockedVertical) {
+                addCellToInterfaceCache(x, y, orange, "✕");
+                continue;
+            }
+            else if (blockedHorizontal) {
+                addCellToInterfaceCache(x, y, red, "—");
+                continue;
+            }
+            else if (blockedVertical) {
+                addCellToInterfaceCache(x, y, red, "|");
+                continue;
+            }
+            // Пустая клетка со светлыми координатами
+            addCellToInterfaceCache(x, y, new paper.Color(0.97, 0.97, 0.97), `${x},${y}`);
         }
     }
 

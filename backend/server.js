@@ -150,7 +150,7 @@ app.post('/api/expand', (req, res) => {
     res.json({
         newWords,
         totalWords: crossword.words.length,
-        firstLetterCandidates: crossword.firstLetterCandidates
+        ...crossword.toJSON()
     });
 });
 

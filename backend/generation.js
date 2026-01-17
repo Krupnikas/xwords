@@ -11,6 +11,7 @@ class Crossword {
         this.blockedCells = new Set(); // O(1) lookup
         this.wordIndex = new WordIndex(initialWordsBank);
         this.allowRepeats = options.allowRepeats || false;
+        this.debug = options.debug || false;
 
         // Удаляем первое слово из индекса (если не разрешены повторы)
         if (!this.allowRepeats) {
@@ -66,7 +67,7 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y - 1, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y, "horizontal"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y + 1, "horizontal"));
-                this.blockedCells.add(this._blockKey(crosswordWord.x + i, crosswordWord.y + 1, "vertical"));
+                // НЕ блокируем vertical снизу — там могут быть пересечения
             }
         }
         if (crosswordWord.direction === "vertical") {
@@ -79,7 +80,7 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x, crosswordWord.y + i, "vertical"));
                 this.blockedCells.add(this._blockKey(crosswordWord.x + 1, crosswordWord.y + i, "vertical"));
-                this.blockedCells.add(this._blockKey(crosswordWord.x + 1, crosswordWord.y + i, "horizontal"));
+                // НЕ блокируем horizontal справа — там могут быть пересечения
             }
         }
 
@@ -164,13 +165,20 @@ class Crossword {
 
     /**
      * Проверить можно ли разместить слово (нет blocked cells).
+     * Если в позиции есть буква (пересечение), блокировка игнорируется.
      */
     canPlaceWord(x, y, direction, wordLength) {
         for (let i = 0; i < wordLength; i++) {
+            const px = direction === "horizontal" ? x + i : x;
+            const py = direction === "horizontal" ? y : y + i;
+
+            // Если есть буква — это пересечение, блокировка не применяется
+            if (this.getCellLetter(px, py) !== null) continue;
+
             if (direction === "horizontal") {
-                if (this.isBlocked(x + i, y, "horizontal")) return false;
+                if (this.isBlocked(px, py, "horizontal")) return false;
             } else {
-                if (this.isBlocked(x, y + i, "vertical")) return false;
+                if (this.isBlocked(px, py, "vertical")) return false;
             }
         }
         return true;
@@ -236,9 +244,15 @@ class Crossword {
         }
 
         if (bestWord === null) {
+            if (this.debug) {
+                console.log('[generate] No word found');
+            }
             return;
         }
 
+        if (this.debug) {
+            console.log(`[generate] Adding: ${bestWord.word} at (${bestWord.x}, ${bestWord.y}) ${bestWord.direction}`);
+        }
         this.addWord(bestWord);
     }
 
@@ -277,9 +291,21 @@ class Crossword {
     }
 
     toJSON() {
+        // Преобразуем blockedCells в массив объектов для фронтенда
+        const blockedCellsArray = [];
+        for (const key of this.blockedCells) {
+            const [x, y, direction] = key.split(',');
+            blockedCellsArray.push({
+                x: parseInt(x),
+                y: parseInt(y),
+                direction: direction
+            });
+        }
+
         return {
             words: this.words,
-            firstLetterCandidates: this.firstLetterCandidates
+            firstLetterCandidates: this.firstLetterCandidates,
+            blockedCells: blockedCellsArray
         };
     }
 }

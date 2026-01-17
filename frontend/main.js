@@ -91,13 +91,17 @@ async function expandCrossword() {
             for (const word of data.newWords) {
                 window.crossword.words.push(word);
             }
-            // Обновляем кандидатов
-            window.crossword.firstLetterCandidates = data.firstLetterCandidates;
+        }
 
-            // Перерисовываем
-            clearInterfaceCache();
-            updateVisibleObjects();
+        // Обновляем кандидатов и заблокированные клетки
+        window.crossword.firstLetterCandidates = data.firstLetterCandidates;
+        window.crossword.blockedCells = data.blockedCells;
 
+        // Перерисовываем
+        clearInterfaceCache();
+        updateVisibleObjects();
+
+        if (data.newWords && data.newWords.length > 0) {
             console.log(`Expanded: +${data.newWords.length} words, total: ${data.totalWords}`);
         }
 
