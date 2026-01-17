@@ -6,7 +6,6 @@ const maxWordLength = 10;
 class Crossword {
     constructor(firstWord, options = {}) {
         this.words = [];
-        this.words.push(firstWord);
         this.firstLetterCandidates = [];
         this.blockedCells = new Set(); // O(1) lookup
         this.wordIndex = new WordIndex(initialWordsBank);
@@ -18,45 +17,44 @@ class Crossword {
             this.wordIndex.removeWord(firstWord.word);
         }
 
+        // Добавляем первое слово и его блокировки
+        this.words.push(firstWord);
+        this._addBlockedCells(firstWord);
+
+        // Создаём начальных кандидатов
         if (firstWord.direction === "horizontal") {
             for (let i = 0; i < firstWord.word.length; i++) {
                 for (let j = 0; j < maxWordLength; j++) {
-                    this.firstLetterCandidates.push({
-                        x: firstWord.x + i,
-                        y: firstWord.y - j,
-                        direction: "vertical"
-                    });
+                    const cx = firstWord.x + i;
+                    const cy = firstWord.y - j;
+                    if (!this.isBlocked(cx, cy, "vertical")) {
+                        this.firstLetterCandidates.push({
+                            x: cx,
+                            y: cy,
+                            direction: "vertical"
+                        });
+                    }
                 }
             }
         }
         if (firstWord.direction === "vertical") {
             for (let i = 0; i < firstWord.word.length; i++) {
                 for (let j = 0; j < maxWordLength; j++) {
-                    this.firstLetterCandidates.push({
-                        x: firstWord.x - j,
-                        y: firstWord.y + i,
-                        direction: "horizontal"
-                    });
+                    const cx = firstWord.x - j;
+                    const cy = firstWord.y + i;
+                    if (!this.isBlocked(cx, cy, "horizontal")) {
+                        this.firstLetterCandidates.push({
+                            x: cx,
+                            y: cy,
+                            direction: "horizontal"
+                        });
+                    }
                 }
             }
         }
     }
 
-    _blockKey(x, y, direction) {
-        return `${x},${y},${direction}`;
-    }
-
-    isBlocked(x, y, direction) {
-        return this.blockedCells.has(this._blockKey(x, y, direction));
-    }
-
-    addWord(crosswordWord) {
-        this.words.push(crosswordWord);
-        if (!this.allowRepeats) {
-            this.wordIndex.removeWord(crosswordWord.word);
-        }
-
-        // block surrounding cells
+    _addBlockedCells(crosswordWord) {
         if (crosswordWord.direction === "horizontal") {
             this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y, "horizontal"));
             this.blockedCells.add(this._blockKey(crosswordWord.x - 1, crosswordWord.y, "vertical"));
@@ -81,6 +79,24 @@ class Crossword {
                 this.blockedCells.add(this._blockKey(crosswordWord.x + 1, crosswordWord.y + i, "vertical"));
             }
         }
+    }
+
+    _blockKey(x, y, direction) {
+        return `${x},${y},${direction}`;
+    }
+
+    isBlocked(x, y, direction) {
+        return this.blockedCells.has(this._blockKey(x, y, direction));
+    }
+
+    addWord(crosswordWord) {
+        this.words.push(crosswordWord);
+        if (!this.allowRepeats) {
+            this.wordIndex.removeWord(crosswordWord.word);
+        }
+
+        // block surrounding cells
+        this._addBlockedCells(crosswordWord);
 
         // remove invalid candidates
         this.firstLetterCandidates = this.firstLetterCandidates.filter(candidate => {
@@ -126,10 +142,20 @@ class Crossword {
 
         for (const candidate of newCandidates) {
             const key = `${candidate.x},${candidate.y},${candidate.direction}`;
-            if (!existingKeys.has(key)) {
-                existingKeys.add(key);
-                this.firstLetterCandidates.push(candidate);
+            if (existingKeys.has(key)) continue;
+            if (this.isBlocked(candidate.x, candidate.y, candidate.direction)) continue;
+
+            // Проверка на слипание
+            if (candidate.direction === "horizontal") {
+                if (this.getCellLetter(candidate.x, candidate.y - 1) !== null) continue;
+                if (this.getCellLetter(candidate.x, candidate.y + 1) !== null) continue;
+            } else {
+                if (this.getCellLetter(candidate.x - 1, candidate.y) !== null) continue;
+                if (this.getCellLetter(candidate.x + 1, candidate.y) !== null) continue;
             }
+
+            existingKeys.add(key);
+            this.firstLetterCandidates.push(candidate);
         }
     }
 

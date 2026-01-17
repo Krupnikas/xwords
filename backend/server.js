@@ -58,7 +58,7 @@ app.get('/api/generate', (req, res) => {
 
 // Догенерация в области viewport
 app.post('/api/expand', (req, res) => {
-    const { sessionId, bounds, depth = 2 } = req.body;
+    const { sessionId, bounds, depth = 1 } = req.body;
 
     if (!sessionId || !sessions.has(sessionId)) {
         return res.status(400).json({ error: 'Invalid session' });
@@ -75,28 +75,45 @@ app.post('/api/expand', (req, res) => {
     const startTime = Date.now();
     let wordsAdded = 0;
 
+    // Расширенные границы: слева/сверху добавляем половину размера
+    const width = x1 - x0;
+    const height = y1 - y0;
+    const extX0 = x0 - Math.floor(width / 2);
+    const extY0 = y0 - Math.floor(height / 2);
+
+    console.log(`[expand] bounds: x=${extX0}..${x1}, y=${extY0}..${y1}, candidates=${crossword.firstLetterCandidates.length}`);
+
     // Генерируем пока есть кандидаты с пересечениями в области
     while (wordsAdded < maxWordsToAdd && (Date.now() - startTime) < maxTimeMs) {
-        // Находим всех кандидатов в области
+        // Находим кандидатов в расширенных границах
         const candidatesInBounds = crossword.firstLetterCandidates.filter(
-            c => c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1
+            c => c.x >= extX0 && c.x <= x1 && c.y >= extY0 && c.y <= y1
         );
 
         if (candidatesInBounds.length === 0) break;
+
+        // Собираем все валидные слова с базовыми скорами
+        const allValidWords = [];
+        for (const candidate of candidatesInBounds) {
+            const validWords = crossword.getValidWordsForCandidate(candidate);
+            allValidWords.push(...validWords);
+        }
+
+        if (allValidWords.length === 0) break;
+
+        // Сортируем по базовому скору и берём топ-50 для детальной проверки
+        allValidWords.sort((a, b) => b.baseScore - a.baseScore);
+        const topCandidates = allValidWords.slice(0, 50);
 
         // Ищем лучшее слово с учётом глубины просчёта
         let bestWord = null;
         let maxScore = 0;
 
-        for (const candidate of candidatesInBounds) {
-            const validWords = crossword.getValidWordsForCandidate(candidate);
-
-            for (const wordData of validWords) {
-                const score = crossword.scoreWord(wordData, depth - 1);
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestWord = wordData;
-                }
+        for (const wordData of topCandidates) {
+            const score = crossword.scoreWord(wordData, depth - 1);
+            if (score > maxScore) {
+                maxScore = score;
+                bestWord = wordData;
             }
         }
 
@@ -104,10 +121,12 @@ app.post('/api/expand', (req, res) => {
             crossword.addWord(bestWord);
             wordsAdded++;
         } else {
-            // Нет подходящих слов для всех кандидатов с пересечениями
+            // Нет подходящих слов
             break;
         }
     }
+
+    console.log(`[expand] done: +${wordsAdded} words in ${Date.now() - startTime}ms`);
 
     // Возвращаем только новые слова
     const newWords = crossword.words.slice(wordsBefore);
