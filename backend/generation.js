@@ -4,15 +4,18 @@ const { WordIndex } = require('./wordIndex');
 const maxWordLength = 10;
 
 class Crossword {
-    constructor(firstWord) {
+    constructor(firstWord, options = {}) {
         this.words = [];
         this.words.push(firstWord);
         this.firstLetterCandidates = [];
         this.blockedCells = new Set(); // O(1) lookup
         this.wordIndex = new WordIndex(initialWordsBank);
+        this.allowRepeats = options.allowRepeats || false;
 
-        // Удаляем первое слово из индекса
-        this.wordIndex.removeWord(firstWord.word);
+        // Удаляем первое слово из индекса (если не разрешены повторы)
+        if (!this.allowRepeats) {
+            this.wordIndex.removeWord(firstWord.word);
+        }
 
         if (firstWord.direction === "horizontal") {
             for (let i = 0; i < firstWord.word.length; i++) {
@@ -48,7 +51,9 @@ class Crossword {
 
     addWord(crosswordWord) {
         this.words.push(crosswordWord);
-        this.wordIndex.removeWord(crosswordWord.word);
+        if (!this.allowRepeats) {
+            this.wordIndex.removeWord(crosswordWord.word);
+        }
 
         // block surrounding cells
         if (crosswordWord.direction === "horizontal") {

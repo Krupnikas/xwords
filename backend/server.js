@@ -32,6 +32,7 @@ setInterval(() => {
 app.get('/api/generate', (req, res) => {
     const count = parseInt(req.query.count) || 30;
     const seed = req.query.seed || 'кроссворд';
+    const allowRepeats = req.query.allowRepeats === 'true';
 
     const firstWord = {
         word: seed,
@@ -40,7 +41,7 @@ app.get('/api/generate', (req, res) => {
         direction: 'horizontal'
     };
 
-    const crossword = new Crossword(firstWord);
+    const crossword = new Crossword(firstWord, { allowRepeats });
     crossword.generate(count);
 
     // Создаём сессию
