@@ -4,13 +4,18 @@ const { WordIndex } = require('./wordIndex');
 const maxWordLength = 10;
 
 class Crossword {
-    constructor(firstWord, options = {}) {
+    constructor(firstWord = null, options = {}) {
         this.words = [];
         this.firstLetterCandidates = [];
         this.blockedCells = new Set(); // O(1) lookup
         this.wordIndex = new WordIndex(initialWordsBank);
         this.allowRepeats = options.allowRepeats || false;
         this.debug = options.debug || false;
+
+        // Если первое слово не передано - создаём пустой кроссворд
+        if (!firstWord) {
+            return;
+        }
 
         // Удаляем первое слово из индекса (если не разрешены повторы)
         if (!this.allowRepeats) {

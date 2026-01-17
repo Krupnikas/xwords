@@ -30,18 +30,10 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.get('/api/generate', (req, res) => {
-    const seed = req.query.seed || 'кроссворд';
     const allowRepeats = req.query.allowRepeats === 'true';
 
-    const firstWord = {
-        word: seed,
-        x: 0,
-        y: 0,
-        direction: 'horizontal'
-    };
-
-    // Создаём кроссворд только с первым словом
-    const crossword = new Crossword(firstWord, { allowRepeats });
+    // Создаём пустой кроссворд - первое слово добавится через expand
+    const crossword = new Crossword(null, { allowRepeats });
 
     // Создаём сессию
     const sessionId = crypto.randomUUID();
@@ -128,13 +120,16 @@ app.post('/api/expand', (req, res) => {
         // Если не удалось добавить с пересечением - пробуем пустое место
         // Границы для пустых слов: экран + 10 клеток с каждой стороны
         if (!addedWithIntersection) {
-            const emptyWord = crossword.findWordInEmptySpace(x0 - 10, y0 - 10, x1 + 10, y1 + 10);
+            const emptyBounds = { x0: x0 - 10, y0: y0 - 10, x1: x1 + 10, y1: y1 + 10 };
+            const emptyWord = crossword.findWordInEmptySpace(emptyBounds.x0, emptyBounds.y0, emptyBounds.x1, emptyBounds.y1);
             if (emptyWord) {
+                console.log(`[expand] added word in empty space: ${emptyWord.word} at (${emptyWord.x}, ${emptyWord.y})`);
                 crossword.addWordToEmptySpace(emptyWord);
                 wordsAdded++;
                 emptyWordsAdded++;
             } else {
                 // Нет места даже для пустого слова - выходим
+                console.log(`[expand] no empty space found in bounds: x=${emptyBounds.x0}..${emptyBounds.x1}, y=${emptyBounds.y0}..${emptyBounds.y1}`);
                 break;
             }
         }
