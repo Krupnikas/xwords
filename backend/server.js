@@ -30,7 +30,6 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.get('/api/generate', (req, res) => {
-    const count = parseInt(req.query.count) || 30;
     const seed = req.query.seed || 'кроссворд';
     const allowRepeats = req.query.allowRepeats === 'true';
 
@@ -41,8 +40,8 @@ app.get('/api/generate', (req, res) => {
         direction: 'horizontal'
     };
 
+    // Создаём кроссворд только с первым словом
     const crossword = new Crossword(firstWord, { allowRepeats });
-    crossword.generate(count);
 
     // Создаём сессию
     const sessionId = crypto.randomUUID();
@@ -71,13 +70,13 @@ app.post('/api/expand', (req, res) => {
 
     const { x0, y0, x1, y1 } = bounds;
     const wordsBefore = crossword.words.length;
-    const maxIterations = 500; // Защита от бесконечного цикла
-    let iterations = 0;
+    const maxWordsToAdd = 30; // Лимит слов за один запрос
+    const maxTimeMs = 5000; // Максимум 5 секунд на запрос
+    const startTime = Date.now();
+    let wordsAdded = 0;
 
     // Генерируем пока есть кандидаты с пересечениями в области
-    while (iterations < maxIterations) {
-        iterations++;
-
+    while (wordsAdded < maxWordsToAdd && (Date.now() - startTime) < maxTimeMs) {
         // Находим всех кандидатов в области с пересечениями
         const candidatesWithConstraints = [];
         for (const c of crossword.firstLetterCandidates) {
@@ -138,6 +137,7 @@ app.post('/api/expand', (req, res) => {
 
         if (bestWord) {
             crossword.addWord(bestWord);
+            wordsAdded++;
         } else {
             // Нет подходящих слов для всех кандидатов с пересечениями
             break;

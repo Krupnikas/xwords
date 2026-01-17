@@ -7,10 +7,10 @@ let sessionId = null;
 let isExpanding = false;
 let lastExpandBounds = null;
 
-async function loadCrossword(count = 30) {
+async function loadCrossword() {
     try {
         console.log('Loading crossword from API...');
-        const response = await fetch(`${API_URL}/generate?count=${count}`);
+        const response = await fetch(`${API_URL}/generate`);
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
         }
@@ -23,6 +23,9 @@ async function loadCrossword(count = 30) {
         clearInterfaceCache();
         updateVisibleObjects();
         console.log(`Loaded crossword with ${window.crossword.words.length} words`);
+
+        // Сразу запускаем expand для видимой области
+        await expandCrossword();
     } catch (error) {
         console.error('Failed to load crossword:', error);
         alert('Не удалось загрузить кроссворд. Убедитесь что сервер запущен на http://localhost:3000');
@@ -141,4 +144,4 @@ paper.view.onMouseUp = (event) => {
 };
 
 // Загружаем кроссворд с сервера
-loadCrossword(30);
+loadCrossword();
