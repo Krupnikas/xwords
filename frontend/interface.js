@@ -104,28 +104,52 @@ function updateVisibleObjects(crossword, activeCell, firstLetterCandidates) {
             activeCell = activeCell || crossword.activeCell;
             firstLetterCandidates = firstLetterCandidates || crossword.firstLetterCandidates;
 
-            if (crossword && crossword.getCellLetter(x, y)) {
-                addCellToInterfaceCache(x, y, new paper.Color(1, 1, 1), crossword.getCellLetter(x, y));
+            // Проверяем кандидатов для этой клетки
+            let hasHorizontal = false;
+            let hasVertical = false;
+            if (firstLetterCandidates) {
+                for (const candidate of firstLetterCandidates) {
+                    if (candidate.x === x && candidate.y === y) {
+                        if (candidate.direction === "horizontal") hasHorizontal = true;
+                        if (candidate.direction === "vertical") hasVertical = true;
+                    }
+                }
+            }
+
+            const letter = crossword && crossword.getCellLetter(x, y);
+            const green = new paper.Color(0.6, 0.9, 0.6);  // vertical
+            const blue = new paper.Color(0.6, 0.6, 0.9);   // horizontal
+            const purple = new paper.Color(0.7, 0.6, 0.9); // both
+
+            if (letter) {
+                // Клетка с буквой - показываем фон кандидата если есть
+                let bgColor = new paper.Color(1, 1, 1); // белый по умолчанию
+                if (hasHorizontal && hasVertical) {
+                    bgColor = purple;
+                } else if (hasHorizontal) {
+                    bgColor = blue;
+                } else if (hasVertical) {
+                    bgColor = green;
+                }
+                addCellToInterfaceCache(x, y, bgColor, letter);
                 continue;
             }
             else if (activeCell && activeCell.x === x && activeCell.y === y) {
                 addCellToInterfaceCache(x, y, new paper.Color(1, 0.6, 0.6));
                 continue;
             }
-            else if (firstLetterCandidates) {
-                const cell = firstLetterCandidates.find(candidate => candidate.x === x && candidate.y === y);
-                if (cell) {
-                    let green = new paper.Color(0.6, 0.9, 0.6);
-                    let blue = new paper.Color(0.6, 0.6, 0.9);
-                    if (cell.direction === "horizontal") {
-                        addCellToInterfaceCache(x, y, blue, "→");
-                        continue;
-                    }
-                    else if (cell.direction === "vertical") {
-                        addCellToInterfaceCache(x, y, green, "↓");
-                        continue;
-                    }
-                }
+            else if (hasHorizontal && hasVertical) {
+                // Оба направления - смешанный цвет и диагональная стрелка
+                addCellToInterfaceCache(x, y, purple, "↘");
+                continue;
+            }
+            else if (hasHorizontal) {
+                addCellToInterfaceCache(x, y, blue, "→");
+                continue;
+            }
+            else if (hasVertical) {
+                addCellToInterfaceCache(x, y, green, "↓");
+                continue;
             }
             addCellToInterfaceCache(x, y);
         }
