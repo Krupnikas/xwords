@@ -44,12 +44,15 @@ function createCell(x, y, color, label) {
     });
     content = label || `(${x}, ${y})`;
     const isLetter = label && label.length === 1 && /[а-яёa-z]/i.test(label);
+    const fontSize = isLetter ? 28 : 12;
+    // Вертикальное смещение: центр клетки + поправка на baseline (примерно 1/3 размера шрифта)
+    const verticalOffset = gridSize / 2 + fontSize / 3;
     const text = new paper.PointText({
-        point: position.add([gridSize / 2, gridSize / 2 + (isLetter ? 4 : 0)]),
+        point: position.add([gridSize / 2, verticalOffset]),
         content: content,
         justification: 'center',
         fillColor: 'black',
-        fontSize: isLetter ? 28 : 12,
+        fontSize: fontSize,
         fontWeight: isLetter ? 'bold' : 'normal'
     });
     const group = new paper.Group([rect, text]);
